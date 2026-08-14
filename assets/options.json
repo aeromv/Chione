@@ -2,20 +2,26 @@
     {
         "name": "LeftClicker",
         "hotkey": "None",
-        "slider_0": 20,
-        "slider_1": 2,
-        "slider_2": 2,
-        "slider_3": 25,
-        "checkbox_0": false,
-        "dropdown_0": null
+        "slider_0": 13,
+        "slider_1": 0,
+        "slider_2": 0,
+        "slider_3": 10,
+        "checkbox_0": true,
+        "checkbox_1": false,
+        "checkbox_2": true,
+        "dropdown_0": "Basic"
     },
     {
         "name": "RightClicker",
         "hotkey": "None",
-        "slider_0": 20,
+        "slider_0": 15,
         "slider_1": 2,
         "slider_2": 2,
-        "checkbox_0": false
+        "checkbox_0": false,
+        "checkbox_1": false,
+        "checkbox_2": false,
+        "checkbox_3": false,
+        "checkbox_4": false
     },
     {
         "name": "AutoSprint",
@@ -27,7 +33,7 @@
         "slider_0": 0.55,
         "slider_1": 0.05,
         "slider_2": 0.03,
-        "dropdown_0": null
+        "dropdown_0": "W-Tap"
     },
     {
         "name": "Strafing",
