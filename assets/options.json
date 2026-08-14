@@ -1,0 +1,83 @@
+[
+    {
+        "name": "LeftClicker",
+        "hotkey": "None",
+        "slider_0": 20,
+        "slider_1": 2,
+        "slider_2": 2,
+        "slider_3": 25,
+        "checkbox_0": false,
+        "dropdown_0": null
+    },
+    {
+        "name": "RightClicker",
+        "hotkey": "None",
+        "slider_0": 20,
+        "slider_1": 2,
+        "slider_2": 2,
+        "checkbox_0": false
+    },
+    {
+        "name": "AutoSprint",
+        "hotkey": "None"
+    },
+    {
+        "name": "SprintReset",
+        "hotkey": "None",
+        "slider_0": 0.55,
+        "slider_1": 0.05,
+        "slider_2": 0.03,
+        "dropdown_0": null
+    },
+    {
+        "name": "Strafing",
+        "hotkey": "None",
+        "slider_0": 0.55,
+        "slider_1": 0.1,
+        "slider_2": 0.2
+    },
+    {
+        "name": "AntiAFK",
+        "hotkey": "None",
+        "slider_0": 60,
+        "slider_1": 5
+    },
+    {
+        "name": "SelfDestruct",
+        "hotkey": "None"
+    },
+    {
+        "name": "LoadConfig",
+        "hotkey": false,
+        "button_0": null
+    },
+    {
+        "name": "SaveConfig",
+        "hotkey": false,
+        "button_0": null
+    },
+    {
+        "name": "General",
+        "hotkey": false,
+        "checkbox_0": false,
+        "checkbox_1": false,
+        "checkbox_2": false,
+        "checkbox_3": false,
+        "checkbox_4": false,
+        "button_0": "Reset Chione"
+    },
+    {
+        "name": "Controls",
+        "hotkey": false,
+        "button_0": "[CTRL]",
+        "button_1": "[SHIFT]",
+        "button_2": "[W]",
+        "button_3": "[A]",
+        "button_4": "[S]",
+        "button_5": "[D]"
+    },
+    {
+        "name": "Others",
+        "hotkey": false
+    }
+]
