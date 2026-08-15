@@ -4,9 +4,9 @@
 
 ---
 
-<h2 align="center">What changed from v0.1.8</h2>
+<h2 align="center">💡 What changed from v0.1.8</h2>
 
-### Combat
+### 🏹 Combat
 
 - **CPS is now locked** — set 13, get 13. No more random spikes to 14 or drops to 12.
 - **Right Clicker got filters:**
@@ -15,24 +15,24 @@
   - `Allow in Menus while Shifting` — shift-click in chests and inventories for fast looting.
 - **Block breaking fixed on Lunar, Badlion and other launchers** — was completely broken before.
 
-### Movement
+### 🏃‍♂️ Movement
 
 - **AutoSprint fixed** — no longer randomly switches to walking.
 - **SprintReset** — W-Tap, S-Tap, or Crouch modes. Only triggers during actual fights, stays off when running around.
 - **Strafing improved** — faster A/D switching during fights, doesn't interfere when you steer manually.
 
-### Hotkeys
+### ⌨️ Hotkeys
 
 - **Works on any keyboard layout** — Arabic, French, AZERTY, doesn't matter.
 - **Hotkeys no longer randomly stop working** after switching windows.
 
-### Stability
+### 🎯 Stability
 
 - **Window focus detection rebuilt** — no more random freezes after alt-tabbing.
 - **Left clicker doesn't "forget" it's active anymore** — there was a bug where clicking would silently stop.
 - **Config auto-repair** — corrupted settings file won't crash the app, it auto-resets.
 
-### Defaults
+### ✨ Defaults
 
 | Setting | Default |
 | :--- | :--- |
@@ -44,7 +44,7 @@
 
 ---
 
-<h2 align="center">Screenshots</h2>
+<h2 align="center">📷 Screenshots</h2>
 
 <p align="center">
   <img src="assets/clicker_tab.png" alt="Clicker Tab" width="400"/>
@@ -53,9 +53,9 @@
 
 ---
 
-<h2 align="center">Installation</h2>
+<h2 align="center">📥 Installation</h2>
 
-<h3 align="center">For Users:</h3>
+<h3 align="center">👥 For Users:</h3>
 
 <div align="center">
 <p><b>Just want to use it? Download the .exe from the <a href="https://github.com/AeroMV/Chione/releases">Releases</a> page.</b></p>
@@ -65,7 +65,7 @@
 <p>Your antivirus might flag the exe — that's normal for compiled Python apps. The source code is fully open, check it yourself.</p>
 </div>
 
-<h3 align="center">For Developers:</h3>
+<h3 align="center">👨‍💻 For Developers:</h3>
 
 <div align="justify">
 <p>Install Python 3.11+, clone the repo, and set up a virtual environment:</p>
