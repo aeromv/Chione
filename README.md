@@ -1,4 +1,4 @@
-<h1 align="center">Chione v1.0.0</h1>
+<h1 align="center">🔮 Chione v1.0.0</h1>
 <p align="center">Modified & upgraded fork of the original <a href="https://github.com/LennardFe/Chione">Chione v0.1.8</a> by marshall.</p>
 <p align="center">External autoclicker + movement tool for Minecraft 1.7/1.8 PvP.</p>
 
