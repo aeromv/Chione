@@ -1,106 +1,86 @@
-<h1 align="center">🔮 Chione v1.0.0</h1>
-<p align="center">Modified & upgraded fork of the original <a href="https://github.com/LennardFe/Chione">Chione v0.1.8</a> by marshall.</p>
-<p align="center">External autoclicker + movement tool for Minecraft 1.7/1.8 PvP.</p>
+# 🔮 Chione v1.0.0
 
----
+Chione is an external autoclicker and movement tool for Minecraft 1.7/1.8 PvP.
 
-<h2 align="center">💡 What changed from v0.1.8</h2>
+This is a modified fork of [Chione v0.1.8](https://github.com/LennardFe/Chione), originally by marshall. It includes changes to clicking behavior, movement modules, hotkeys, and configuration handling.
 
-### 🏹 Combat
+## Changes in v1.0.0
 
-- **CPS is now locked** — set 13, get 13. No more random spikes to 14 or drops to 12.
-- **Right Clicker got filters:**
-  - `Ignore while Shifting` — stops right clicking when you crouch.
-  - `Ignore while Left Clicking` — pauses right click while you're attacking.
-  - `Allow in Menus while Shifting` — shift-click in chests and inventories for fast looting.
-- **Block breaking fixed on Lunar, Badlion and other launchers** — was completely broken before.
+### Clicking
 
-### 🏃‍♂️ Movement
+- **Fixed CPS behavior.** The clicker aims to stay closer to the configured CPS.
+- **Added Right Clicker filters:**
+  - `Ignore while Shifting` stops right clicking while crouching.
+  - `Ignore while Left Clicking` pauses right clicking while attacking.
+  - `Allow in Menus while Shifting` allows shift-clicking in chests and inventories.
+- Fixed block breaking issues reported with Lunar, Badlion, and other launchers.
 
-- **AutoSprint fixed** — no longer randomly switches to walking.
-- **SprintReset** — W-Tap, S-Tap, or Crouch modes. Only triggers during actual fights, stays off when running around.
-- **Strafing improved** — faster A/D switching during fights, doesn't interfere when you steer manually.
+### Movement
 
-### ⌨️ Hotkeys
+- **AutoSprint:** Fixed unexpected switches between sprinting and walking.
+- **SprintReset:** Added W-Tap, S-Tap, and Crouch modes for combat.
+- **Strafing:** Improved A/D switching during fights while reducing interference with manual movement.
 
-- **Works on any keyboard layout** — Arabic, French, AZERTY, doesn't matter.
-- **Hotkeys no longer randomly stop working** after switching windows.
+### Hotkeys and window handling
 
-### 🎯 Stability
+- Improved support for different keyboard layouts, including AZERTY and Arabic.
+- Fixed hotkeys that could stop working after switching windows.
+- Reworked window focus detection to address freezes after alt-tabbing.
 
-- **Window focus detection rebuilt** — no more random freezes after alt-tabbing.
-- **Left clicker doesn't "forget" it's active anymore** — there was a bug where clicking would silently stop.
-- **Config auto-repair** — corrupted settings file won't crash the app, it auto-resets.
+### Configuration
 
-### ✨ Defaults
+- Added recovery for corrupted configuration files.
+- Updated the default clicker settings.
+
+## Default settings
 
 | Setting | Default |
-| :--- | :--- |
+| --- | --- |
 | CPS | `13` |
 | Randomize | `0` |
 | Shake | `0` |
 | Hold Leftclick | `ON` |
 | Allow while Shifting | `ON` |
 
----
-
-<h2 align="center">📷 Screenshots</h2>
+## Screenshots
 
 <p align="center">
-  <img src="assets/clicker_tab.png" alt="Clicker Tab" width="400"/>
-  <img src="assets/movement_tab.png" alt="Movement Tab" width="400"/>
+  <img src="assets/clicker_tab.png" alt="Chione clicker settings" width="400"/>
+  <img src="assets/movement_tab.png" alt="Chione movement settings" width="400"/>
 </p>
 
----
+## Download
 
-<h2 align="center">📥 Installation</h2>
+Download the Windows executable from [Releases](https://github.com/AeroMV/Chione/releases).
 
-<h3 align="center">👥 For Users:</h3>
+Chione requests administrator privileges when launched. Review the source code before running an executable you don't trust.
 
-<div align="center">
-<p><b>Just want to use it? Download the .exe from the <a href="https://github.com/AeroMV/Chione/releases">Releases</a> page.</b></p>
-</div>
+## Run from source
 
-<div align="justify">
-<p>Your antivirus might flag the exe — that's normal for compiled Python apps. The source code is fully open, check it yourself.</p>
-</div>
+**Requirements:** Windows and Python 3.11 or newer.
 
-<h3 align="center">👨‍💻 For Developers:</h3>
+Clone the repository and install the dependencies:
 
-<div align="justify">
-<p>Install Python 3.11+, clone the repo, and set up a virtual environment:</p>
-</div>
+    git clone https://github.com/AeroMV/Chione.git
+    cd Chione
+    python -m venv .venv
+    .venv\Scripts\activate
+    python -m pip install -r requirements.txt
 
-```
-python -m venv .venv
-.venv\Scripts\Activate
-pip install -r requirements.txt
-```
+Start the application:
 
-<div align="justify">
-<p>Then just run:</p>
-</div>
+    python main.py
 
-```
-python main.py
-```
+### Build the executable
 
-### Build EXE
+    pyinstaller Chione.spec
 
-```
-pyinstaller Chione.spec
-```
+The packaged files are written to `dist/`.
 
-Output goes to `dist/`.
+## Server rules
+
+Some Minecraft servers prohibit autoclickers or movement tools. Check the rules of the server you play on before using Chione.
 
 ---
 
-<h2 align="center">Additional Information</h2>
-
-<div align="justify">
-<p>Usage of autoclickers may be prohibited by some servers. I do not take any responsibility for consequences resulting from using this tool. Use it at your own risk. For more information, refer to the <a href="LICENSE.md">LICENSE</a>.</p>
-</div>
-
-<div align="center">
-<p>Modified by <b>AeroMV</b> · Original by <b>marshall</b></p>
-</div>
+Modified by **AeroMV**. Based on the original work by **marshall**.
