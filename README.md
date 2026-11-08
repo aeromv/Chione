@@ -59,7 +59,10 @@ This is a modified fork of [Chione v0.1.8](https://github.com/LennardFe/Chione),
 
 ## Download
 
-Download **Chione-windows.zip** from [Releases](https://github.com/AeroMV/Chione/releases/latest), extract it and run `Chione.exe`.
+Download from [Releases](https://github.com/AeroMV/Chione/releases/latest):
+
+- **Chione.exe**: single file, just double-click it.
+- **Chione-windows.zip**: folder version with fewer antivirus warnings. Extract it first, then run `Chione.exe` from the extracted folder (running it from inside the ZIP does not work).
 
 Chione requests administrator privileges when launched. Review the source code before running an executable you don't trust.
 
@@ -83,7 +86,7 @@ Start the application:
 
     pyinstaller Chione.spec
 
-The app is written to `dist/Chione/`. Releases are built automatically on GitHub Actions (`.github/workflows/release.yml`).
+The app is written to `dist/Chione/`. For the single-file version run `pyinstaller --workpath build/onefile --distpath dist-onefile Chione-onefile.spec`. Releases are built automatically on GitHub Actions (`.github/workflows/release.yml`).
 
 ## Troubleshooting
 
