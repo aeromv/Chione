@@ -45,9 +45,10 @@ def on_top(self, _, var):
 def reset_settings(self, _, button_name=None, text_value=None):
     try:
         os.remove(get_user_path(self.json_file))
-        self.root.destroy()
     except FileNotFoundError:
         pass
+    # Close even if there was no saved file (the tooltip promises it)
+    self.root.destroy()
 
 
 def set_controls(self, _, button_name, text_value):
@@ -62,6 +63,10 @@ def set_controls(self, _, button_name, text_value):
     self.active_hotkey_popup = popup
 
     def assign_key(key, scan_code=None):
+        if str(key).startswith("xbutton"):
+            # Controls are pressed by Chione via the keyboard; mouse buttons can't be used
+            label.config(text="Mouse buttons can't be used here.\nPress a keyboard key")
+            return
         if key == "Escape" or key == "esc":
             self.buttons[button_name].config(text="None")
             popup.destroy()

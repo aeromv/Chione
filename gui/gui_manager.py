@@ -24,6 +24,8 @@ import keyboard
 # Standard Library Imports
 import tkinter as tk
 import threading
+import queue
+import logging
 
 
 class GUI:
@@ -66,6 +68,11 @@ class GUI:
         # JSON settings file
         self.json_file = resource(get_file_path("options.json"))
 
+        # Work handed over from other threads (keyboard listener, mouse hook).
+        # Tkinter may only be used from the main thread, and hook callbacks
+        # must never block, so they enqueue here and the Tk loop drains it.
+        self._ui_queue = queue.SimpleQueue()
+
         # ----------------------------------------------------------------
         # Root window
         # ----------------------------------------------------------------
@@ -76,6 +83,7 @@ class GUI:
         self.root.resizable(True, True)
         self.root.configure(bg=CONTENT_COLOR)
         set_icon(self.root)
+        self.root.report_callback_exception = self._report_tk_exception
         self.root.protocol("WM_DELETE_WINDOW",
                            lambda: save_settings(self, self.json_file))
 
@@ -120,6 +128,35 @@ class GUI:
         # Show default page
         self.on_navigate(DEFAULT_PAGE)
 
+        # Start draining work posted by background threads
+        self.root.after(10, self._drain_ui_queue)
+
+    # ====================================================================
+    # Cross-thread dispatch
+    # ====================================================================
+
+    def post(self, fn):
+        """Run fn on the Tk main thread. Safe and non-blocking from any thread."""
+        self._ui_queue.put(fn)
+
+    def _drain_ui_queue(self):
+        try:
+            while True:
+                fn = self._ui_queue.get_nowait()
+                try:
+                    fn()
+                except Exception:
+                    logging.exception("Error in posted UI callback")
+        except queue.Empty:
+            pass
+        try:
+            self.root.after(10, self._drain_ui_queue)
+        except tk.TclError:
+            pass  # window destroyed
+
+    def _report_tk_exception(self, exc, val, tb):
+        logging.error("Unhandled Tk callback exception", exc_info=(exc, val, tb))
+
     def _initialize_factory_defaults(self):
         for module_name, mod_def in self.modules.items():
             # Sliders
@@ -127,7 +164,7 @@ class GUI:
                 self.sliders[f"{module_name}_{x}"] = mod_def[f"slider_default{x + 1}"]
             # Checkboxes
             for x in range(mod_def.get("checkbox", 0)):
-                self.checkboxs[f"{module_name}_{x}"] = False
+                self.checkboxs[f"{module_name}_{x}"] = mod_def.get(f"checkbox_default{x + 1}", False)
             # Dropdowns
             for x in range(mod_def.get("dropdown", 0)):
                 self.dropdowns[f"{module_name}_{x}"] = mod_def[f"dropdown_values{x + 1}"][0]
@@ -381,7 +418,7 @@ class GUI:
             slider.pack(side=tk.TOP, fill=tk.X, expand=True, anchor=tk.CENTER,
                         padx=2 * CONTENT_PAD_X, pady=CONTENT_PAD_Y / 2)
 
-            ToolTip(slider, slider_tip, self.tooltips_enabled)
+            ToolTip(slider, slider_tip, lambda: self.tooltips_enabled)
 
             # Set saved or default value
             saved = self.sliders.get(name)
@@ -439,7 +476,7 @@ class GUI:
 
             checkbox.pack(side=tk.TOP, fill=tk.BOTH, expand=True,
                           padx=2 * CONTENT_PAD_X, pady=CONTENT_PAD_Y)
-            ToolTip(checkbox, cb_tip, self.tooltips_enabled)
+            ToolTip(checkbox, cb_tip, lambda: self.tooltips_enabled)
 
             saved = self.checkboxs.get(name)
             cb_var.set(bool(saved) if isinstance(saved, bool) else mod.get(f"checkbox_default{x + 1}", False))
@@ -474,7 +511,7 @@ class GUI:
             border.pack(side=tk.TOP, fill=tk.X, expand=True,
                         padx=2 * CONTENT_PAD_X, pady=CONTENT_PAD_Y)
             dd.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
-            ToolTip(dd, tip, self.tooltips_enabled)
+            ToolTip(dd, tip, lambda: self.tooltips_enabled)
 
             saved = self.dropdowns.get(name)
             if isinstance(saved, str) and saved in values:
@@ -544,7 +581,7 @@ class GUI:
 
             # Tooltip
             if mod.get(f"button_tooltip{x + 1}"):
-                ToolTip(btn, mod[f"button_tooltip{x + 1}"], self.tooltips_enabled)
+                ToolTip(btn, mod[f"button_tooltip{x + 1}"], lambda: self.tooltips_enabled)
 
             # Restore saved button text
             saved = self.buttons.get(name)
@@ -557,7 +594,9 @@ class GUI:
         if not self.modules.get(module).get("hotkey", False):
             return
         hotkey_val = self.modules[module].get("hotkey")
-        if hotkey_val and hotkey_val != "None":
+        if hotkey_val and hotkey_val != "None" and str(hotkey_val).startswith("xbutton"):
+            hotkey_text = f"Key: [MOUSE {4 if hotkey_val == 'xbutton1' else 5}]"
+        elif hotkey_val and hotkey_val != "None":
             hotkey_text = f"Key: [{hotkey_val.upper()}]"
         else:
             hotkey_text = "Bind Hotkey"

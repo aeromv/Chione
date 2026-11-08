@@ -2,6 +2,17 @@ from config.setup import *
 import tkinter as tk
 
 class Dropdown(tk.Frame):
+    # One shared <Configure> handler closes every open dropdown. Previously each
+    # dropdown called root.bind(), replacing the previous handler, so only the
+    # last dropdown closed when the window moved.
+    _live = set()
+    _bound_roots = set()
+
+    @classmethod
+    def _close_all(cls, _event=None):
+        for dd in list(cls._live):
+            dd.remove_top_level()
+
     def __init__(self, master, display_text, options, relief, command):
         super().__init__(master)
         
@@ -60,7 +71,11 @@ class Dropdown(tk.Frame):
 
         # Close dropdown when window is moved
         root = self.master.winfo_toplevel() 
-        root.bind('<Configure>', lambda e: self.remove_top_level())
+        Dropdown._live.add(self)
+        self.bind("<Destroy>", lambda e: Dropdown._live.discard(self) if e.widget is self else None, add="+")
+        if str(root) not in Dropdown._bound_roots:
+            root.bind('<Configure>', Dropdown._close_all, add="+")
+            Dropdown._bound_roots.add(str(root))
 
     def toggle_dropdown(self):
         # Check if the dropdown menu is mapped
@@ -89,6 +104,9 @@ class Dropdown(tk.Frame):
         self.toggle_dropdown()
 
     def remove_top_level(self):
-        if self.tw.winfo_exists():  # Check if the Toplevel window exists
-            if self.dropdown_menu.winfo_ismapped():
-                self.tw.withdraw()
+        try:
+            if self.tw.winfo_exists():  # Check if the Toplevel window exists
+                if self.dropdown_menu.winfo_ismapped():
+                    self.tw.withdraw()
+        except tk.TclError:
+            Dropdown._live.discard(self)

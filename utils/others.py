@@ -82,9 +82,9 @@ def modules_should_run(gui) -> bool:
     if getattr(gui, 'menu_filter_enabled', False) and gui.currently_in_foreground and (gui.currently_in_menu or is_cursor_visible()):
         # Allow clicking in menus (inventories) while shifting (fast looting)
         from utils.hotkeys import get_controls
-        import keyboard
+        from utils.input_state import is_key_physically_down
         crouch_key = get_controls(gui, "Controls_1", "SHIFT")
-        if keyboard.is_pressed(crouch_key):
+        if is_key_physically_down(gui, crouch_key):
             return True
         return False
     return True

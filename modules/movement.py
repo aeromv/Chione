@@ -1,18 +1,16 @@
-import keyboard
 import threading
 import time
-import win32api
 import random
 
 from utils.hotkeys import get_controls
 from utils.others import modules_should_run
-from utils.sendinput import press_key, release_key
+from utils.sendinput import press_key, release_key, get_vk
+from utils.input_state import is_key_physically_down, is_key_logically_down
 
 
 # AutoSprint
 def autosprint(self, stop_event, module):
     sprint_pressed = False
-    sprint_vk = 0x11
     w_release_time = 0.0
     GRACE_PERIOD = 0.15  # keep sprint held for 150ms after W release
 
@@ -21,13 +19,12 @@ def autosprint(self, stop_event, module):
             if modules_should_run(self):
                 sprint_key = get_controls(self, "Controls_0", "CTRL")
                 w_key = get_controls(self, "Controls_2", "W")
-                sprint_vk = get_vk_code(sprint_key)
-
-                w_held = keyboard.is_pressed(w_key)
+                # Physical W only: SprintReset's own W re-presses must not count
+                w_held = is_key_physically_down(self, w_key)
 
                 if w_held:
                     w_release_time = 0.0
-                    already_held = sprint_vk != 0 and bool(win32api.GetAsyncKeyState(sprint_vk) & 0x8000)
+                    already_held = is_key_physically_down(self, sprint_key)
                     if not sprint_pressed and not already_held:
                         press_key(sprint_key)
                         sprint_pressed = True
@@ -66,34 +63,19 @@ def get_key_for_mode(mode):
     mapping = {
         "W-Tap":  {"control": "Controls_2", "key": "W"},
         "S-Tap":  {"control": "Controls_4", "key": "S"},
-        "Crouch": {"control": "Controls_1", "key": "CTRL"},
+        "Crouch": {"control": "Controls_1", "key": "SHIFT"},
     }
     return mapping.get(mode)
 
 
 def get_vk_code(key_str: str) -> int:
-    key_str = key_str.lower()
-    special_vk = {
-        'shift': 0x10,
-        'ctrl': 0x11,
-        'control': 0x11,
-        'alt': 0x12,
-        'space': 0x20,
-        'escape': 0x1B,
-        'capslock': 0x14,
-    }
-    if key_str in special_vk:
-        return special_vk[key_str]
-    if len(key_str) == 1:
-        import ctypes
-        try:
-            ctypes.windll.user32.VkKeyScanW.argtypes = [ctypes.c_wchar]
-            ctypes.windll.user32.VkKeyScanW.restype = ctypes.c_short
-            vk = ctypes.windll.user32.VkKeyScanW(key_str) & 0xFF
-            return vk
-        except Exception:
-            pass
-    return 0
+    """VK code for a key name (layout aware), 0 if unknown.
+
+    The old version returned 0xFF when VkKeyScanW failed (e.g. 'w' on an
+    Arabic layout). 0xFF is never "pressed", so SprintReset thought W was not
+    held and kept force-releasing it: the player could not walk forward.
+    """
+    return get_vk(key_str)
 
 
 def sprintreset(self, stop_event, module, delay, randomize, hold, mode):
@@ -105,18 +87,16 @@ def sprintreset(self, stop_event, module, delay, randomize, hold, mode):
     last_hit_time = 0.0
     COMBAT_WINDOW = 0.6
 
-    vk_w = get_vk_code(w_key)
-
     try:
         while not stop_event.is_set():
             if modules_should_run(self):
-                # Unstick W if user stopped holding it
-                if vk_w != 0:
-                    physical_w = bool(win32api.GetAsyncKeyState(vk_w) & 0x8000)
-                    if not physical_w and keyboard.is_pressed(w_key):
-                        release_key(w_key)
+                physical_w = is_key_physically_down(self, w_key)
 
-                current_left = self.mouse_hook.left_pressed
+                # Unstick W if the user let go while we were re-pressing it
+                if not physical_w and is_key_logically_down(w_key):
+                    release_key(w_key)
+
+                current_left = self.mouse_hook.is_button_physically_down("left")
                 
                 lc_running = self.registry.is_running("LeftClicker")
                 lc_toggle_mode = lc_running and not self.get_checkbox_value("LeftClicker", 0)
@@ -128,21 +108,16 @@ def sprintreset(self, stop_event, module, delay, randomize, hold, mode):
                 time_since_hit = time.perf_counter() - last_hit_time
                 in_combat = (time_since_hit < COMBAT_WINDOW) or lc_toggle_mode
 
-                is_running_forward = False
-                if vk_w != 0:
-                    is_running_forward = bool(win32api.GetAsyncKeyState(vk_w) & 0x8000)
-                else:
-                    is_running_forward = keyboard.is_pressed(w_key)
-
-                if is_running_forward and in_combat:
+                if physical_w and in_combat:
                     if mode == "W-Tap":
                         release_key(w_key)
                         stop_event.wait(min(max(hold, 0.02), 0.05))
-                        
-                        if not stop_event.is_set():
+
+                        # Only re-press W if the user is still holding it
+                        if not stop_event.is_set() and is_key_physically_down(self, w_key):
                             press_key(w_key)
-                            
-                            sprint_key = get_controls(self, "Controls_0", "SHIFT")
+
+                            sprint_key = get_controls(self, "Controls_0", "CTRL")
                             stop_event.wait(0.01)
                             press_key(sprint_key)
                             stop_event.wait(0.02)
@@ -165,14 +140,13 @@ def sprintreset(self, stop_event, module, delay, randomize, hold, mode):
             else:
                 stop_event.wait(0.1)
     finally:
-        try:
-            release_key(w_key)
-        except Exception:
-            pass
-        try:
-            release_key(tap_key)
-        except Exception:
-            pass
+        # Release only keys the user is not physically holding
+        for k in {w_key, tap_key}:
+            try:
+                if not is_key_physically_down(self, k):
+                    release_key(k)
+            except Exception:
+                pass
 
 
 def thread_sprintreset(self, stop_event, module, slider, randomize, hold, mode):
@@ -187,8 +161,6 @@ def thread_sprintreset(self, stop_event, module, slider, randomize, hold, mode):
 def strafing(self, stop_event, module, delay, randomize, hold, randomize_direction):
     a_key = get_controls(self, "Controls_3", "a")
     d_key = get_controls(self, "Controls_5", "d")
-    vk_a = get_vk_code(a_key)
-    vk_d = get_vk_code(d_key)
     last_key_pressed = random.choice([a_key, d_key])
 
     try:
@@ -197,13 +169,12 @@ def strafing(self, stop_event, module, delay, randomize, hold, randomize_directi
                 w_key = get_controls(self, "Controls_2", "W")
                 
                 # Don't interfere with manual steering
-                user_steering = False
-                if vk_a != 0 and (win32api.GetAsyncKeyState(vk_a) & 0x8000):
-                    user_steering = True
-                if vk_d != 0 and (win32api.GetAsyncKeyState(vk_d) & 0x8000):
-                    user_steering = True
-                
-                if keyboard.is_pressed(w_key) and self.mouse_hook.left_pressed and not user_steering:
+                user_steering = (is_key_physically_down(self, a_key)
+                                 or is_key_physically_down(self, d_key))
+
+                if (is_key_physically_down(self, w_key)
+                        and self.mouse_hook.is_button_physically_down("left")
+                        and not user_steering):
                     if not randomize_direction:
                         key_to_press = d_key if last_key_pressed == a_key else a_key
                     else:
@@ -229,14 +200,12 @@ def strafing(self, stop_event, module, delay, randomize, hold, randomize_directi
             else:
                 stop_event.wait(0.1)
     finally:
-        try:
-            release_key(a_key)
-        except Exception:
-            pass
-        try:
-            release_key(d_key)
-        except Exception:
-            pass
+        for k in (a_key, d_key):
+            try:
+                if not is_key_physically_down(self, k):
+                    release_key(k)
+            except Exception:
+                pass
 
 
 def thread_strafing(self, stop_event, module, delay, randomize, hold, randomize_direction):

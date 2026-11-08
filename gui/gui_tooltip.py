@@ -13,7 +13,8 @@ class ToolTip(object):
         self.tw = None
 
     def enter(self, event=None):
-        if self.tooltips_enabled:
+        enabled = self.tooltips_enabled() if callable(self.tooltips_enabled) else self.tooltips_enabled
+        if enabled:
             self.schedule()
 
     def leave(self, event=None):

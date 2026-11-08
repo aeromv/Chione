@@ -63,33 +63,63 @@ _KEY_MAPPING = {
     'numpad 8': (0x68, 0x48, False), 'numpad 9': (0x69, 0x49, False),
 }
 
-# Configure types for keybd_event API
-ctypes.windll.user32.keybd_event.argtypes = [
+# Configure types for the Win32 APIs used here
+_user32 = ctypes.windll.user32
+_user32.keybd_event.argtypes = [
     ctypes.c_ubyte,
     ctypes.c_ubyte,
     ctypes.c_ulong,
     ctypes.c_void_p
 ]
-ctypes.windll.user32.keybd_event.restype = None
+_user32.keybd_event.restype = None
+_user32.VkKeyScanW.argtypes = [ctypes.c_wchar]
+_user32.VkKeyScanW.restype = ctypes.c_short
+_user32.MapVirtualKeyW.argtypes = [ctypes.c_uint, ctypes.c_uint]
+_user32.MapVirtualKeyW.restype = ctypes.c_uint
+
+MAPVK_VK_TO_VSC = 0
+
+
+def _layout_key_details(char: str):
+    """Resolve a single character through the active keyboard layout.
+
+    This is what makes AZERTY / Arabic / other layouts work: on AZERTY the
+    character 'z' lives on the physical key that QWERTY calls 'w', so a
+    hardcoded QWERTY scan-code table would press the wrong key.
+    """
+    try:
+        res = _user32.VkKeyScanW(char)
+        if res == -1:
+            return None
+        vk = res & 0xFF
+        if vk in (0, 0xFF):
+            return None
+        scan = _user32.MapVirtualKeyW(vk, MAPVK_VK_TO_VSC)
+        if scan:
+            return (vk, scan, False)
+    except Exception:
+        pass
+    return None
 
 
 def _get_key_details(key_name: str):
     """Return (vk, scan_code, is_extended) for a key name, or None."""
-    key_lower = key_name.lower().strip()
-    result = _KEY_MAPPING.get(key_lower)
-    if result:
-        return result
-    # Fallback for single characters: use VkKeyScanW and MapVirtualKeyW
+    if not key_name:
+        return None
+    key_lower = str(key_name).lower().strip()
+    # Single characters: ask the active keyboard layout first, then fall
+    # back to the QWERTY table (e.g. 'w' on an Arabic layout).
     if len(key_lower) == 1:
-        try:
-            vk = ctypes.windll.user32.VkKeyScanW(ctypes.c_wchar(key_lower)) & 0xFF
-            if vk != 0xFF:
-                scan = ctypes.windll.user32.MapVirtualKeyW(vk, 0)
-                if scan:
-                    return (vk, scan, False)
-        except Exception:
-            pass
-    return None
+        result = _layout_key_details(key_lower)
+        if result:
+            return result
+    return _KEY_MAPPING.get(key_lower)
+
+
+def get_vk(key_name: str) -> int:
+    """Return the virtual-key code for a key name, or 0 if unknown."""
+    result = _get_key_details(key_name)
+    return result[0] if result else 0
 
 
 def press_key(key_name: str):
