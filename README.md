@@ -1,8 +1,16 @@
-# 🔮 Chione v1.0.0
+# 🔮 Chione v1.0.1
 
 Chione is an external autoclicker and movement tool for Minecraft 1.7/1.8 PvP.
 
 This is a modified fork of [Chione v0.1.8](https://github.com/LennardFe/Chione), originally by marshall. It includes changes to clicking behavior, movement modules, hotkeys, and configuration handling.
+
+## Changes in v1.0.1
+
+- **Allow Eating** and **Break Blocks** now work: the clicker no longer interrupts eating or block breaking.
+- Modules no longer stop silently; errors are written to `chione_error.log` in your user folder.
+- SprintReset no longer leaves W stuck, and Hold Leftclick is more reliable.
+- Better support for AZERTY and Arabic keyboard layouts.
+- Smaller fixes for SelfDestruct, Reset Chione, dropdowns, tooltips and mouse hotkey labels.
 
 ## Changes in v1.0.0
 
@@ -51,7 +59,7 @@ This is a modified fork of [Chione v0.1.8](https://github.com/LennardFe/Chione),
 
 ## Download
 
-Download the Windows executable from [Releases](https://github.com/AeroMV/Chione/releases).
+Download **Chione-windows.zip** from [Releases](https://github.com/AeroMV/Chione/releases/latest), extract it and run `Chione.exe`.
 
 Chione requests administrator privileges when launched. Review the source code before running an executable you don't trust.
 
@@ -75,7 +83,7 @@ Start the application:
 
     pyinstaller Chione.spec
 
-The packaged files are written to `dist/`.
+The app is written to `dist/Chione/`. Releases are built automatically on GitHub Actions (`.github/workflows/release.yml`).
 
 ## Troubleshooting
 
