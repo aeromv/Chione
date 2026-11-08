@@ -77,7 +77,7 @@ def main():
     except Exception:
         pass
 
-    version = "1.0.0"
+    version = "1.0.1"
     title = "Chione"
     dev = "dev by marshall | Modified by AeroMV"
     try:
