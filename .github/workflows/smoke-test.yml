@@ -13,16 +13,27 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        source: [release, fresh-build]
+        source: [release-exe, release-zip, fresh-build]
     steps:
       - uses: actions/checkout@v4
 
-      - name: Get published release
-        if: matrix.source == 'release'
+      # Exactly what a user gets when clicking the download link
+      - name: Download published release (public link)
+        if: startsWith(matrix.source, 'release')
         shell: pwsh
         run: |
-          Invoke-WebRequest https://github.com/aeromv/Chione/releases/latest/download/Chione-windows.zip -OutFile Chione-windows.zip
-          Expand-Archive Chione-windows.zip -DestinationPath app
+          $name = if ("${{ matrix.source }}" -eq "release-exe") { "Chione.exe" } else { "Chione-windows.zip" }
+          $ok = $false
+          foreach ($i in 1..5) {
+            try {
+              Invoke-WebRequest "https://github.com/aeromv/Chione/releases/latest/download/$name" -OutFile $name
+              $ok = $true; break
+            } catch { "Attempt $i failed: $($_.Exception.Message)"; Start-Sleep 10 }
+          }
+          if (-not $ok) { throw "Public download link for $name is broken" }
+          "Downloaded $name : $((Get-Item $name).Length) bytes"
+          if ($name -eq "Chione.exe") { New-Item -ItemType Directory app | Out-Null; Move-Item $name app\ }
+          else { Expand-Archive $name -DestinationPath app }
 
       - uses: actions/setup-python@v5
         if: matrix.source == 'fresh-build'
