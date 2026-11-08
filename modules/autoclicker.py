@@ -5,45 +5,80 @@ import time
 import win32api
 import win32con
 import win32gui
+import win32process
 
-from utils.others import modules_should_run
-import keyboard
+from utils.others import modules_should_run, is_cursor_visible
 from utils.hotkeys import get_controls
-
-# Overhead constant — subtracted from the raw interval so actual CPS converges
-# to the target despite Win32 round-trip latency (~0.5–2 ms per click).
-CLICK_OVERHEAD_SECONDS = 0.0
+from utils.input_state import is_key_physically_down
 
 
 # Helpers
 def find_win_pos():
+    """Return (hwnd, lParam) for posting a click to the game window.
+
+    WindowFromPoint finds the real input window of launchers with nested
+    windows (Lunar etc.), but it is only trusted when it belongs to the same
+    process as the foreground window — otherwise clicks could land on the
+    desktop or another app.
+    """
     x, y = win32api.GetCursorPos()
-    # Use WindowFromPoint to find the actual input-receiving window
-    # (fixes Break Blocks on Lunar Client and other launchers with nested windows)
+    fg = win32gui.GetForegroundWindow()
     hwnd = win32gui.WindowFromPoint((x, y))
-    if not hwnd:
-        hwnd = win32gui.GetForegroundWindow()
+    try:
+        if not hwnd or (fg and win32process.GetWindowThreadProcessId(hwnd)[1]
+                        != win32process.GetWindowThreadProcessId(fg)[1]):
+            hwnd = fg
+    except Exception:
+        hwnd = hwnd or fg
     rel_x, rel_y = win32gui.ScreenToClient(hwnd, (x, y))
-    param = win32api.MAKELONG(rel_x, rel_y)
+    param = win32api.MAKELONG(rel_x & 0xFFFF, rel_y & 0xFFFF)
     return hwnd, param
 
 
-def click_mouse(title, param, button, bblock=False):
-    if bblock:
-        # Use SendMessage for virtual clicks (preserves physical hold for block breaking/eating on vanilla)
-        msg_down = win32con.WM_LBUTTONDOWN if button == 'left' else win32con.WM_RBUTTONDOWN
-        msg_up   = win32con.WM_LBUTTONUP   if button == 'left' else win32con.WM_RBUTTONUP
-        state    = win32con.MK_LBUTTON      if button == 'left' else win32con.MK_RBUTTON
-        win32api.SendMessage(title, msg_down, state, param)
-        win32api.SendMessage(title, msg_up,   state, param)
-    else:
-        # Use hardware mouse_event with realistic hold time (compatible with Badlion/Lunar and bypasses anti-cheats)
-        msg_down_bb = win32con.MOUSEEVENTF_LEFTDOWN if button == 'left' else win32con.MOUSEEVENTF_RIGHTDOWN
-        msg_up_bb   = win32con.MOUSEEVENTF_LEFTUP   if button == 'left' else win32con.MOUSEEVENTF_RIGHTUP
-        
-        win32api.mouse_event(msg_down_bb, 0, 0)
-        time.sleep(random.uniform(0.005, 0.010))
-        win32api.mouse_event(msg_up_bb, 0, 0)
+_MSG = {
+    "left":  (win32con.WM_LBUTTONDOWN, win32con.WM_LBUTTONUP, win32con.MK_LBUTTON,
+              win32con.MOUSEEVENTF_LEFTDOWN, win32con.MOUSEEVENTF_LEFTUP),
+    "right": (win32con.WM_RBUTTONDOWN, win32con.WM_RBUTTONUP, win32con.MK_RBUTTON,
+              win32con.MOUSEEVENTF_RIGHTDOWN, win32con.MOUSEEVENTF_RIGHTUP),
+}
+
+
+def send_virtual_up(hwnd, param, button):
+    """Send a window-message button-up (used to clean up a down-only click)."""
+    if not hwnd:
+        return
+    try:
+        _, msg_up, _, _, _ = _MSG[button]
+        win32api.SendMessage(hwnd, msg_up, 0, param or 0)
+    except Exception:
+        pass
+
+
+def click_mouse(hwnd, param, button, virtual=False, physically_held=False):
+    """Perform one click.
+
+    virtual=False -> hardware-level mouse_event down + up (normal clicking).
+
+    virtual=True  -> window messages straight to the game ("Break Blocks" /
+                     "Allow Eating"). While the user is physically holding the
+                     button only a DOWN message is sent: the game keeps seeing
+                     the button as held, so eating / bow drawing / block
+                     breaking are NOT interrupted, yet every DOWN still counts
+                     as a new click (block placing, hits). Sending DOWN+UP —
+                     the previous behaviour — released "use item" / "attack"
+                     in the game on every click, which is why Allow Eating
+                     and Break Blocks did not work.
+    """
+    msg_down, msg_up, state, ev_down, ev_up = _MSG[button]
+    if virtual and hwnd:
+        win32api.SendMessage(hwnd, msg_down, state, param)
+        if not physically_held:
+            win32api.SendMessage(hwnd, msg_up, 0, param)
+        return True  # a down-only click may need a later virtual UP
+    win32api.mouse_event(ev_down, 0, 0)
+    time.sleep(random.uniform(0.005, 0.010))
+    win32api.mouse_event(ev_up, 0, 0)
+    return False
 
 
 def shake_effect(shake):
@@ -73,16 +108,22 @@ def leftclick(self, stop_event, module, clicks_per_second, randomize, shake,
               blockhit, hold, bblock, allow_shifting, button="left"):
     # Main loop for left clicks. Uses perf_counter for better timing accuracy.
     next_click_time = time.perf_counter()
+    virtual_down = None  # (hwnd, param) of a down-only virtual click
     try:
         while not stop_event.is_set():
-            # Get physical state fallback if hook drops
-            left_button_state = self.mouse_hook.left_pressed or bool(win32api.GetAsyncKeyState(0x01) & 0x8000)
+            # Physical state comes from the hook (ignores our own clicks)
+            left_button_state = self.mouse_hook.is_button_physically_down("left")
+
+            # The user let go after a down-only virtual click: release it in the game too
+            if virtual_down and not left_button_state:
+                send_virtual_up(*virtual_down, button)
+                virtual_down = None
 
             if modules_should_run(self):
                 crouch_key = get_controls(self, "Controls_1", "SHIFT")
-                is_crouching = keyboard.is_pressed(crouch_key)
-                
-                if bblock and is_crouching and not allow_shifting:
+                is_crouching = is_key_physically_down(self, crouch_key)
+
+                if is_crouching and not allow_shifting:
                     should_click = False
                 else:
                     should_click = (hold and left_button_state) or (not hold)
@@ -92,10 +133,11 @@ def leftclick(self, stop_event, module, clicks_per_second, randomize, shake,
                     if now >= next_click_time:
                         interval = interval_calculator(clicks_per_second, randomize)
                         if bblock:
-                            title, param = find_win_pos()
+                            hwnd, param = find_win_pos()
                         else:
-                            title, param = None, None
-                        click_mouse(title, param, button, bblock)
+                            hwnd, param = None, None
+                        if click_mouse(hwnd, param, button, bblock, left_button_state):
+                            virtual_down = (hwnd, param) if left_button_state else None
 
                         # Blockhit
                         if random.randint(1, 100) <= blockhit:
@@ -124,7 +166,11 @@ def leftclick(self, stop_event, module, clicks_per_second, randomize, shake,
                 stop_event.wait(0.05)
                 next_click_time = time.perf_counter()
     finally:
-        win32api.mouse_event(win32con.MOUSEEVENTF_LEFTUP, 0, 0)
+        if virtual_down and not self.mouse_hook.is_button_physically_down("left"):
+            send_virtual_up(*virtual_down, button)
+        # Never release a button the user is still physically holding
+        if not self.mouse_hook.is_button_physically_down("left"):
+            win32api.mouse_event(win32con.MOUSEEVENTF_LEFTUP, 0, 0)
 
 
 def thread_lclick(self, stop_event, module, slider, randomize, shake, blockhit,
@@ -143,10 +189,18 @@ def thread_lclick(self, stop_event, module, slider, randomize, shake, blockhit,
 def rightclick(self, stop_event, module, clicks_per_second, randomize, shake,
                hold, eat, ignore_shifting, ignore_leftclicking, allow_menus_shifting, button="right"):
     # Main loop for right clicks.
-    from utils.others import is_cursor_visible
     next_click_time = time.perf_counter()
+    virtual_down = None  # (hwnd, param) of a down-only virtual click
     try:
         while not stop_event.is_set():
+            # Physical state comes from the hook (ignores our own clicks)
+            right_button_state = self.mouse_hook.is_button_physically_down("right")
+
+            # The user let go after a down-only virtual click: release it in the game too
+            if virtual_down and not right_button_state:
+                send_virtual_up(*virtual_down, button)
+                virtual_down = None
+
             # Check window focus
             is_focused = not getattr(self, 'focus_filter_enabled', False) or self.currently_in_foreground
             if not is_focused:
@@ -155,9 +209,8 @@ def rightclick(self, stop_event, module, clicks_per_second, randomize, shake,
                 continue
 
             # Read states
-            right_button_state = self.mouse_hook.right_pressed or bool(win32api.GetAsyncKeyState(0x02) & 0x8000)
             crouch_key = get_controls(self, "Controls_1", "SHIFT")
-            is_crouching = keyboard.is_pressed(crouch_key)
+            is_crouching = is_key_physically_down(self, crouch_key)
             in_menu = self.currently_in_foreground and (self.currently_in_menu or is_cursor_visible())
 
             # Decide whether to click based on filters
@@ -171,7 +224,7 @@ def rightclick(self, stop_event, module, clicks_per_second, randomize, shake,
                 if ignore_shifting and is_crouching:
                     should_run_by_menu = False
 
-            left_held = self.mouse_hook.left_pressed or bool(win32api.GetAsyncKeyState(0x01) & 0x8000)
+            left_held = self.mouse_hook.is_button_physically_down("left")
             if ignore_leftclicking and left_held:
                 should_run_by_menu = False
 
@@ -183,10 +236,11 @@ def rightclick(self, stop_event, module, clicks_per_second, randomize, shake,
                     if now >= next_click_time:
                         interval = interval_calculator(clicks_per_second, randomize)
                         if eat:
-                            title, param = find_win_pos()
+                            hwnd, param = find_win_pos()
                         else:
-                            title, param = None, None
-                        click_mouse(title, param, button, eat)
+                            hwnd, param = None, None
+                        if click_mouse(hwnd, param, button, eat, right_button_state):
+                            virtual_down = (hwnd, param) if right_button_state else None
                         shake_effect(shake)
 
                         # Drift-compensating schedule
@@ -207,7 +261,11 @@ def rightclick(self, stop_event, module, clicks_per_second, randomize, shake,
                 stop_event.wait(0.01)
                 next_click_time = time.perf_counter()
     finally:
-        win32api.mouse_event(win32con.MOUSEEVENTF_RIGHTUP, 0, 0)
+        if virtual_down and not self.mouse_hook.is_button_physically_down("right"):
+            send_virtual_up(*virtual_down, button)
+        # Never release a button the user is still physically holding
+        if not self.mouse_hook.is_button_physically_down("right"):
+            win32api.mouse_event(win32con.MOUSEEVENTF_RIGHTUP, 0, 0)
 
 
 def thread_rclick(self, stop_event, module, clicks_per_second, randomize, shake, hold,

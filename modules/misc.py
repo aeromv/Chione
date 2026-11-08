@@ -37,5 +37,5 @@ def thread_antiafk(self, stop_event, module, timer, randomize):
 
 def selfdestruct(self, stop_event, module):
     """Saves settings and closes the application."""
+    # save_settings() already destroys the window; a second destroy() raised TclError
     save_settings(self, self.json_file)
-    self.root.destroy()

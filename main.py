@@ -1,7 +1,41 @@
-from gui.gui_manager import GUI
-from tkinter import *
 import ctypes
+import logging
+import os
 import sys
+import threading
+
+LOG_FILE = os.path.join(os.path.expanduser("~"), "chione_error.log")
+
+
+def setup_logging():
+    """Send every uncaught error (main thread, module threads, Tk callbacks)
+    to ~/chione_error.log. The windowed build has no console, so before this a
+    crashing module thread just silently stopped working."""
+    try:
+        logging.basicConfig(
+            filename=LOG_FILE, level=logging.WARNING, encoding="utf-8",
+            format="%(asctime)s [%(threadName)s] %(levelname)s: %(message)s",
+        )
+    except Exception:
+        return
+
+    def thread_hook(args):
+        logging.error("Uncaught exception in thread %s",
+                      getattr(args.thread, "name", "?"),
+                      exc_info=(args.exc_type, args.exc_value, args.exc_traceback))
+
+    def main_hook(exc_type, exc_value, exc_tb):
+        logging.critical("Uncaught exception", exc_info=(exc_type, exc_value, exc_tb))
+
+    threading.excepthook = thread_hook
+    sys.excepthook = main_hook
+
+
+def message_box(text, title="Chione"):
+    try:
+        ctypes.windll.user32.MessageBoxW(None, text, title, 0x10)  # MB_ICONERROR
+    except Exception:
+        pass
 
 
 def is_admin():
@@ -21,14 +55,21 @@ def main():
             params = f'"{sys.argv[0]}" ' + " ".join([f'"{arg}"' for arg in sys.argv[1:]])
         
         # Relaunch as admin (UAC prompt will be shown)
-        ctypes.windll.shell32.ShellExecuteW(None, "runas", executable, params, None, 1)
+        result = ctypes.windll.shell32.ShellExecuteW(None, "runas", executable, params, None, 1)
+        if result <= 32:
+            # UAC was declined or failed: say so instead of silently vanishing
+            message_box("Chione needs administrator rights to send clicks and "
+                        "keys to Minecraft.\n\nPlease start it again and accept "
+                        "the administrator prompt.")
         sys.exit(0)
 
-    # Redirect stdout and stderr to devnull in frozen windowed mode to prevent crashes from print calls
-    if getattr(sys, 'frozen', False):
-        import os
+    # Windowed builds have no console: stdout/stderr can be None, which breaks
+    # print(file=sys.stderr). Redirect them to devnull; real errors go to the log.
+    if sys.stdout is None or sys.stderr is None or getattr(sys, 'frozen', False):
         sys.stdout = open(os.devnull, 'w')
         sys.stderr = open(os.devnull, 'w')
+
+    setup_logging()
 
     # Set Windows timer resolution to 1ms for ultra-accurate CPS and sleep times
     try:
@@ -39,7 +80,13 @@ def main():
     version = "1.0.0"
     title = "Chione"
     dev = "dev by marshall | Modified by AeroMV"
-    app = GUI(version, title, dev)
+    try:
+        from gui.gui_manager import GUI
+        app = GUI(version, title, dev)
+    except Exception:
+        logging.exception("Chione failed to start")
+        message_box(f"Chione failed to start.\n\nDetails were written to:\n{LOG_FILE}")
+        raise
     app.root.mainloop()
 
 

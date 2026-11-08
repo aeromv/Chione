@@ -124,9 +124,15 @@ def on_key_press(self, event):
     popup = getattr(self, "active_hotkey_popup", None)
     callback = getattr(self, "active_hotkey_popup_callback", None)
     if popup and callback:
-        self.root.after(0, lambda: callback(key_name, event.scan_code))
+        self.post(lambda: callback(key_name, event.scan_code))
         return
 
+    # This runs on the keyboard library's thread. Tkinter is not thread-safe,
+    # so the actual toggling is handed to the Tk main thread.
+    self.post(lambda: _dispatch_key_hotkey(self, key_name, event.scan_code))
+
+
+def _dispatch_key_hotkey(self, key_name, scan_code):
     try:
         pressed_normalized = normalize_hotkey(key_name)
         
@@ -134,7 +140,7 @@ def on_key_press(self, event):
             if data.get("hotkey") != False:
                 # Match by hardware scan code first (layout independent)
                 saved_scan = data.get("hotkey_scan")
-                if saved_scan is not None and saved_scan == event.scan_code:
+                if saved_scan is not None and saved_scan == scan_code:
                     if self.hotkeys_enabled:
                         toggle_and_execute(self, module)
                     continue

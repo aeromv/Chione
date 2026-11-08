@@ -77,6 +77,12 @@ Start the application:
 
 The packaged files are written to `dist/`.
 
+## Troubleshooting
+
+- **A module is ON but does nothing / Chione does not start:** errors are written to `chione_error.log` in your user folder (`C:\Users\<you>\chione_error.log`). Please attach it when reporting a bug.
+- **Chione closes right after launch:** it needs administrator rights. Accept the Windows prompt.
+- **Antivirus removed the .exe:** autoclickers use keyboard/mouse hooks and are often flagged as false positives. Add an exception or run from source.
+
 ## Server rules
 
 Some Minecraft servers prohibit autoclickers or movement tools. Check the rules of the server you play on before using Chione.
